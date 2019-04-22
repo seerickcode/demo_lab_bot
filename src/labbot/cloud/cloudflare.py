@@ -10,7 +10,10 @@ Training / Presentation session virtual container management system
 
 import os
 import CloudFlare
+import logging
 from labbot.errors import LabConfigMissing
+
+logger = logging.getLogger(__name__)
 
 CF_API_KEY = os.environ.get("CF_API_KEY", None)
 CF_API_EMAIL = os.environ.get("CF_API_EMAIL", None)
@@ -41,7 +44,11 @@ def create_lab_a_record(reference, ip_address):
 
 def delete_lab_a_record(record_id):
 
-    check_config()
-    cf = CloudFlare.CloudFlare(debug=True, email=CF_API_EMAIL, token=CF_API_KEY)
-    r = cf.zones.dns_records.delete(CF_ZONE, record_id)
-    return r.get["id"]
+    try:
+        check_config()
+        cf = CloudFlare.CloudFlare(debug=True, email=CF_API_EMAIL, token=CF_API_KEY)
+        r = cf.zones.dns_records.delete(CF_ZONE, record_id)
+        return r.get("id")
+    except CloudFlare.exceptions.CloudFlareAPIError:
+        logger.warn(f"CF record missing / already destroyed ? #{record_id}")
+        return

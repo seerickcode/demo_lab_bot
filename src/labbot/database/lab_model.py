@@ -38,6 +38,7 @@ class Lab(DeclarativeBase):
     cf_reference = Column(String(255))
     active = Column(Boolean, default=True)
     status = Column(Enum(LabStatus), default=LabStatus.UNKNOWN)
+    instances = Column(Integer(), default=0)
     ts_created = Column(DateTime, default=datetime.datetime.now)
     ts_updated = Column(DateTime, onupdate=datetime.datetime.now)
 

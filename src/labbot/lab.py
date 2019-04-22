@@ -6,6 +6,7 @@ Copyright (C) 2015 Slackbot Contributors
 
 """
 
+import os
 import logging
 import threading
 import time
@@ -14,10 +15,12 @@ import traceback
 from labbot.database import DB, Lab, LabStatus
 from labbot.singleton import Singleton
 from labbot.errors import LabExists, LabTotalExceeded
-from labbot.cloud.do import create_instance
+from labbot.cloud.do import create_instance, destroy_instance
 from labbot.cloud.cloudflare import create_lab_a_record, delete_lab_a_record
 
 logger = logging.getLogger(__name__)
+
+LAB_INSTANCES_MAX = os.environ.get("LAB_INSTANCE_MAX", 4)
 
 
 class LabManager(object, metaclass=Singleton):
@@ -46,9 +49,16 @@ class LabManager(object, metaclass=Singleton):
                     )
                 for k, v in self._labs.items():
                     v = s.merge(v)
-                    if v.slack_owner_id == slack_id:
+                    if (
+                        v.slack_owner_id == slack_id
+                        and v.status is not LabStatus.TERMINATED
+                    ):
                         raise LabExists(
-                            f"Slack ID {slack_id} already has an active/stuck lab"
+                            f"Slack ID {slack_id} already has an active/stuck lab.  Terminate with command 'killlab'"
+                        )
+                    if v.slack_owner_id == slack_id and v.instances > LAB_INSTANCES_MAX:
+                        raise LabExists(
+                            f"Slack ID {slack_id} has already had {v.instances} labs, no more allowed"
                         )
 
                 lab = Lab(slack_owner_id=slack_id, status=LabStatus.WAITING_INSTANCE)
@@ -89,6 +99,7 @@ class LabManager(object, metaclass=Singleton):
                 time.sleep(5)
 
                 lab.status = LabStatus.ACTIVE
+                lab.instances += 1
                 s.commit()
 
                 if status_callback is not None:
@@ -105,11 +116,69 @@ class LabManager(object, metaclass=Singleton):
                     status_callback.send(f"Instance Failed - {e}")
                     status_callback.close()
 
-    def delete_lab(self, lab):
-        pass
+    def destroy_lab(self, slack_id, status_callback=None):
 
-    def delete_lab_by_slack_id(self, slack_id):
-        pass
+        if status_callback is not None:
+            next(status_callback)
+
+        lab = None
+        with self.db.session() as s:
+            with self.list_lock:
+                for k, v in self._labs.items():
+                    v = s.merge(v)
+                    if v.slack_owner_id == slack_id:
+                        lab = v
+
+            # Finish with the lock as quick as we can
+            # and now go through the stages to delete the lab
+            if lab is None:
+                raise LabExists(
+                    f"Slack ID {slack_id} does not have a lab associated with it"
+                )
+
+            lab = s.merge(lab)
+
+            logger.debug(
+                f"Destroying Lab {lab.id} for slack client {lab.slack_owner_id}"
+            )
+            lab.status = LabStatus.DEACTIVATE_INSTANCE
+            s.commit()
+
+            if status_callback is not None:
+                status_callback.send("Starting instance termination")
+
+            try:
+                destroy_instance(lab.do_reference)
+                lab.do_reference = None
+                lab.ip = None
+                lab.status = LabStatus.DEACTIVATE_DNS
+                s.commit()
+
+                # Clean up DNS record
+                if status_callback is not None:
+                    status_callback.send("Instance Terminating - Cleaning up DNS")
+
+                delete_lab_a_record(lab.cf_reference)
+                lab.cf_reference = None
+                lab.url = None
+                lab.status = LabStatus.TERMINATED
+                s.commit()
+
+                if status_callback is not None:
+                    status_callback.send(
+                        f"Instance has been terminated.  Thanks for playing !"
+                    )
+                    status_callback.close()
+
+                return lab
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)
+                logger.error(f"Instance Termination Error {e}")
+                lab.status = LabStatus.UNKNOWN
+                s.commit()
+                if status_callback is not None:
+                    status_callback.send(f"Instance Termination Failed - {e}")
+                    status_callback.close()
 
     def expire_labs(self):
         pass

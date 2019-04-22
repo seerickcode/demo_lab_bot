@@ -8,7 +8,8 @@ Training / Presentation session virtual container management system
 
 """
 import os
-import sys, traceback
+import sys
+import traceback
 import logging
 import digitalocean
 import time
@@ -80,3 +81,31 @@ def create_instance(reference):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         raise LabCloudException(f"Unhandled exception on droplet creation {e}")
+
+
+def destroy_instance(reference):
+    # from pudb import set_trace; set_trace()
+
+    if not validate_key():
+        raise LabCloudException("Unable to reach cloud API / Token issue")
+
+    try:
+        _droplet = digitalocean.Droplet.get_object(DO_KEY, reference)
+        if _droplet is None:
+            raise LabCloudException(f"Unable to get droplet object via API")
+
+        r = _droplet.destroy()
+
+        logger.warn(f"DO instance destroyed #{r}")
+
+        return r
+
+    except digitalocean.baseapi.NotFoundError:
+        logger.warn(f"DO instance already destroyed? #{reference}")
+        return
+    except LabCloudException:
+        traceback.print_exc(file=sys.stdout)
+        raise
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        raise LabCloudException(f"Unhandled exception on droplet destruction {e}")
