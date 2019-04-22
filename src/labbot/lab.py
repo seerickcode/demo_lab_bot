@@ -78,7 +78,7 @@ class LabManager(object, metaclass=Singleton):
 
                 dns_reference, dns_url = create_lab_a_record(lab.slack_owner_id, lab.ip)
                 lab.cf_reference = dns_reference
-                lab.url = f"https://{dns_url}"
+                lab.url = f"http://{dns_url}:8443"
                 lab.status = LabStatus.WAITING_HEALTH
                 s.commit()
 
