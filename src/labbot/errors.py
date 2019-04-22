@@ -12,3 +12,5 @@ class LabCloudException(Exception):
 class LabCloudTimeout(Exception):
     pass
 
+class LabConfigMissing(Exception):
+    pass

@@ -9,6 +9,8 @@ Copyright (C) 2015 Slackbot Contributors
 import logging
 import threading
 import time
+import sys
+import traceback
 from labbot.database import DB, Lab, LabStatus
 from labbot.singleton import Singleton
 from labbot.errors import LabExists, LabTotalExceeded
@@ -82,7 +84,7 @@ class LabManager(object, metaclass=Singleton):
 
                 # Validate URL
                 if status_callback is not None:
-                    status_callback.send("Instance Ready - Waiting for healthcheck to pass")
+                    status_callback.send(f"Doing Health Check on {lab.url}")
 
                 time.sleep(5)
 
@@ -90,11 +92,12 @@ class LabManager(object, metaclass=Singleton):
                 s.commit()
 
                 if status_callback is not None:
-                    status_callback.send("Instance Ready to use")
+                    status_callback.send(f"Instance Ready to use at {lab.url}")
                     status_callback.close()
 
                 return lab
             except Exception as e:
+                traceback.print_exc(file=sys.stdout)
                 logger.error(f"Instance Creation Error {e}")
                 lab.status = LabStatus.UNKNOWN
                 s.commit()
