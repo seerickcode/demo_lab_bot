@@ -16,7 +16,7 @@ from labbot.errors import LabCloudException, LabCloudTimeout
 
 DO_KEY = os.environ.get("DO_API_TOKEN", None)
 DO_ZONE = os.environ.get("DO_ZONE", "SFO2")
-DO_SIZE = os.environ.get("DO_SIZE", "s-1vcpu-1gb")
+DO_SIZE = os.environ.get("DO_SIZE", "s-1vcpu-3gb")
 DO_IMAGE = os.environ.get("DO_IMAGE", "ubuntu-18-04-x64")
 DO_TIMEOUT = os.environ.get("DO_TIMEOUT", 600)
 
