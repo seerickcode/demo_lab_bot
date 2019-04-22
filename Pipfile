@@ -1,0 +1,19 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+ipython = "*"
+pudb = "*"
+
+[packages]
+python-cloudflare = "*"
+slack-machine = "*"
+python-digitalocean = "*"
+alembic = "*"
+sqlalchemy = "*"
+simplejson = "*"
+
+[requires]
+python_version = "3.6"
