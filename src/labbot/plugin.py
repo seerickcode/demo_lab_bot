@@ -63,6 +63,7 @@ class LabBotPlugin(MachineBasePlugin):
             logger.warn(f"Unauthorized admin command")
             return
 
+        msg.reply(f"Resetting labs")
         self.manager.destroy_all(self.make_lab_status_callback(msg))
 
     @respond_to(r"^makelab$")
