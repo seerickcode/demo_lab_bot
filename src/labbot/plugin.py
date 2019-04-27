@@ -39,6 +39,7 @@ class LabBotPlugin(MachineBasePlugin):
         self.manager = LabManager(
             self.db, default_max_labs=10, default_lab_lifetime=60 * 60
         )
+        self.admin_channel = self.settings.get("ADMIN_CHANNEL", None)
         logger.info("LabBot active")
 
     # @respond_to(r"^about$")
@@ -50,6 +51,19 @@ class LabBotPlugin(MachineBasePlugin):
         while True:
             status_message = yield
             msg.reply_dm(f"Lab Status : {status_message}")
+
+    @respond_to(r"^lab reset$", re.IGNORECASE)
+    def lab_reset(self, msg):
+
+        if self.admin_channel is None:
+            self.admin_channel = msg.channel.id
+            logger.warn(f"admin channel set to {self.admin_channel}\n{msg.channel}")
+
+        if msg.channel.id != self.admin_channel:
+            logger.warn(f"Unauthorized admin command")
+            return
+
+        self.manager.destroy_all(self.make_lab_status_callback(msg))
 
     @respond_to(r"^makelab$")
     def make_lab(self, msg):

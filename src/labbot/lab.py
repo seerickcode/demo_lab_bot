@@ -12,7 +12,7 @@ import threading
 import time
 import sys
 import traceback
-import urllib
+from urllib.request import urlopen
 from labbot.database import DB, Lab, LabStatus
 from labbot.singleton import Singleton
 from labbot.errors import LabExists, LabTotalExceeded
@@ -101,7 +101,7 @@ class LabManager(object, metaclass=Singleton):
                 wait_until = datetime.now() + timedelta(minutes=1)
                 break_loop = False
                 while not break_loop:
-                    code = urllib.urlopen(lab.url).getcode()
+                    code = urlopen(lab.url).getcode()
                     if wait_until < datetime.now() or int(code / 200) == 2:
                         break_loop = True
 

@@ -37,7 +37,7 @@ def create_lab_a_record(reference, ip_address):
 
     check_config()
     cf = CloudFlare.CloudFlare(debug=True, email=CF_API_EMAIL, token=CF_API_KEY)
-    record = {"name": reference + CF_ZONE_PREFIX, "type": "A", "content": ip_address}
+    record = {"name": reference + CF_ZONE_PREFIX, "type": "A", "content": ip_address, "ttl": 120}
     r = cf.zones.dns_records.post(CF_ZONE, data=record)
     return (r.get("id"), r.get("name"))
 
