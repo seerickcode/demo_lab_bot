@@ -12,11 +12,13 @@ import threading
 import time
 import sys
 import traceback
+import urllib
 from labbot.database import DB, Lab, LabStatus
 from labbot.singleton import Singleton
 from labbot.errors import LabExists, LabTotalExceeded
 from labbot.cloud.do import create_instance, destroy_instance
 from labbot.cloud.cloudflare import create_lab_a_record, delete_lab_a_record
+from datetime import timedelta, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +98,12 @@ class LabManager(object, metaclass=Singleton):
                 if status_callback is not None:
                     status_callback.send(f"Doing Health Check on {lab.url}")
 
-                time.sleep(5)
+                wait_until = datetime.now() + timedelta(minutes=1)
+                break_loop = False
+                while not break_loop:
+                    code = urllib.urlopen(lab.url).getcode()
+                    if wait_until < datetime.now() or int(code / 200) == 2:
+                        break_loop = True
 
                 lab.status = LabStatus.ACTIVE
                 lab.instances += 1
@@ -179,6 +186,20 @@ class LabManager(object, metaclass=Singleton):
                 if status_callback is not None:
                     status_callback.send(f"Instance Termination Failed - {e}")
                     status_callback.close()
+
+    def destroy_all(self, status_callback=None):
+
+        if status_callback is not None:
+            next(status_callback)
+
+        for lab_entry in self._labs:
+            lab = lab_entry.values()[0]
+            owner = lab.slack_owner_id
+            if status_callback is not None:
+                status_callback.send(f"Starting instance termination for {owner}")
+            self.destroy_lab(lab.slack_owner_id)
+            if status_callback is not None:
+                status_callback.send(f"Done instance termination for {owner}")
 
     def expire_labs(self):
         pass
