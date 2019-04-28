@@ -54,6 +54,7 @@ class LabBotPlugin(MachineBasePlugin):
 
     @respond_to(r"^lab reset$", re.IGNORECASE)
     def lab_reset(self, msg):
+        msg.reply(f"Reset lab attempt")
 
         if self.admin_channel is None:
             self.admin_channel = msg.channel.id
@@ -63,7 +64,7 @@ class LabBotPlugin(MachineBasePlugin):
             logger.warn(f"Unauthorized admin command")
             return
 
-        msg.reply(f"Resetting labs")
+        msg.reply(f"Destroying all labs")
         self.manager.destroy_all(self.make_lab_status_callback(msg))
 
     @respond_to(r"^makelab$")

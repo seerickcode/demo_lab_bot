@@ -97,13 +97,25 @@ class LabManager(object, metaclass=Singleton):
                 # Validate URL
                 if status_callback is not None:
                     status_callback.send(f"Doing Health Check on {lab.url}")
+                time.sleep(10)
+                try:
+                    wait_until = datetime.now() + timedelta(minutes=1)
+                    break_loop = False
+                    while not break_loop:
+                        code = urlopen(lab.url).getcode()
+                        if wait_until < datetime.now() or int(code / 200) == 2:
+                            break_loop = True
+                except Exception:
+                    pass
 
-                wait_until = datetime.now() + timedelta(minutes=1)
-                break_loop = False
-                while not break_loop:
-                    code = urlopen(lab.url).getcode()
-                    if wait_until < datetime.now() or int(code / 200) == 2:
-                        break_loop = True
+                if break_loop:
+                    status_callback.send(
+                        "Could not do health check, DNS may have failed, use IP, and hope for the best"
+                    )
+
+                # No, don't do this.  But need to, can't remember
+                # urllib exception for dns fail, but in final hour
+                # need to move on
 
                 lab.status = LabStatus.ACTIVE
                 lab.instances += 1
@@ -111,6 +123,7 @@ class LabManager(object, metaclass=Singleton):
 
                 if status_callback is not None:
                     status_callback.send(f"Instance Ready to use at {lab.url}")
+                    status_callback.send(f"Instance Ready to use http://{lab.ip}:8443")
                     status_callback.close()
 
                 return lab
@@ -189,17 +202,28 @@ class LabManager(object, metaclass=Singleton):
 
     def destroy_all(self, status_callback=None):
 
+        owners = []
+
+        with self.db.session() as s:
+            with self.list_lock:
+                for k, v in self._labs.items():
+                    v = s.merge(v)
+                    owners.append(v.slack_owner_id)
+
+
         if status_callback is not None:
             next(status_callback)
 
-        for lab_entry in self._labs:
-            lab = lab_entry.values()[0]
-            owner = lab.slack_owner_id
+        for slack_id in owners:
             if status_callback is not None:
-                status_callback.send(f"Starting instance termination for {owner}")
-            self.destroy_lab(lab.slack_owner_id)
+                status_callback.send(f"Starting instance termination for {slack_id}")
+            self.destroy_lab(slack_id)
             if status_callback is not None:
-                status_callback.send(f"Done instance termination for {owner}")
+                status_callback.send(f"Done instance termination for {slack_id}")
+
+        if status_callback is not None:
+            status_callback.send(f"Done...")
+            status_callback.close()
 
     def expire_labs(self):
         pass
